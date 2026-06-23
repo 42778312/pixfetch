@@ -20,6 +20,12 @@
 # production
 /build
 
+# downloaded media
+/downloads/
+
+# auto-downloaded yt-dlp binary
+/bin/
+
 # misc
 .DS_Store
 *.pem
