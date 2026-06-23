@@ -1,36 +1,84 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# YTDL Pro
 
-## Getting Started
+A self-hosted YouTube video and playlist downloader built with Next.js 16, `@distube/ytdl-core`, and ffmpeg.
 
-First, run the development server:
+## Features
+
+- Single video download (1080p / 720p / 480p / 360p / MP3)
+- Real playlist parsing and batch download with concurrency control
+- Fast stream mode — pipe video directly to the browser
+- Clip downloads — trim a time range before saving
+- Smart URL parsing (Shorts, music.youtube.com, bare video IDs, messy pastes)
+- Deep links: open `/?url=<youtube-url>` to auto-analyze
+- YouTube bookmarklet (see Settings panel)
+- Optional [yt-dlp](https://github.com/yt-dlp/yt-dlp) fallback for reliability
+
+## Requirements
+
+- Node.js 18+
+- npm
+
+Bundled via npm:
+
+- `ffmpeg-static` — used for audio conversion and A/V muxing
+
+Optional:
+
+- `yt-dlp` on PATH (or set `YT_DLP_PATH`) — used when ytdl-core fails
+
+## Setup
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## Usage
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Paste a YouTube URL and click **Analyze**
+2. Choose quality (or enable clip mode with start/end times)
+3. Click **Download** — fast stream mode pipes directly to your browser; server mode shows progress in the queue
 
-## Learn More
+### Deep link from YouTube
 
-To learn more about Next.js, take a look at the following resources:
+Share or open:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+http://localhost:3000/?url=https://www.youtube.com/watch?v=VIDEO_ID
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Bookmarklet
 
-## Deploy on Vercel
+Open **Settings** in the app header and drag the bookmarklet link to your bookmarks bar.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## API Routes
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Route | Description |
+|-------|-------------|
+| `GET /api/info?url=` | Video or playlist metadata |
+| `GET /api/download?id=&quality=&taskId=` | SSE server download with progress |
+| `DELETE /api/download?taskId=` | Cancel an active download |
+| `GET /api/download/stream?id=&quality=&start=&end=` | Direct browser stream |
+| `GET /api/download/file?id=&quality=` | Serve completed file from disk |
+| `GET /api/health` | ytdl-core / yt-dlp health check |
+
+## Scripts
+
+```bash
+npm run dev    # development
+npm run build  # production build
+npm run start  # production server
+npm run lint   # ESLint
+```
+
+## Notes
+
+- Downloads are stored in `downloads/` (gitignored) and auto-cleaned after 24 hours
+- Public deployment may require rate limiting (enabled on API routes) and has YouTube ToS implications — intended for self-hosted use
+
+## License
+
+MIT
+# pixfetch
