@@ -12,6 +12,7 @@ import DownloadQueue from '../components/DownloadQueue';
 import SettingsPanel from '../components/SettingsPanel';
 import { Zap, ArrowRight } from 'lucide-react';
 import { loadSettings, saveSettings, createDownloadManager } from '../lib/downloadManager';
+import { parseDeepLinkFlags, pickFormatForQuality } from '../lib/deepLink';
 import {
   fetchDownloadStatus,
   downloadUrlWithProgress,
@@ -45,6 +46,9 @@ function HomeContent() {
   const settingsRef = useRef(settings);
   const startServerDownloadRef = useRef(null);
   const startStreamDownloadRef = useRef(null);
+  const handleDownloadRef = useRef(null);
+  const handleBatchDownloadRef = useRef(null);
+
   settingsRef.current = settings;
 
   const ensureDownloadManager = () => {
@@ -69,16 +73,19 @@ function HomeContent() {
     };
   }, []);
 
+
   useEffect(() => {
-    if (deepLinkHandled.current) return;
-    const deepUrl = searchParams.get('url');
-    if (deepUrl) {
-      deepLinkHandled.current = true;
-      setUrl(deepUrl);
-      handleAnalyze(deepUrl, true);
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const errorCode = searchParams.get('error');
+    if (!errorCode) return;
+
+    const messages = {
+      'missing-video-or-playlist': 'Add a video (?v=) or playlist (?list=) ID to the link.',
+      'invalid-video-id': 'That video ID is not valid.',
+      'invalid-playlist-id': 'That playlist ID is not valid.',
+      'invalid-link': 'Could not build a download link from that URL.',
+    };
+    setError(messages[errorCode] || 'Invalid link.');
+    window.history.replaceState({}, '', window.location.pathname);
   }, [searchParams]);
 
   const updateSettings = (next) => {
@@ -93,9 +100,10 @@ function HomeContent() {
     setAmbiguous(null);
   };
 
-  const handleAnalyze = async (customUrl = null, fromDeepLink = false) => {
+  const handleAnalyze = async (customUrl = null, options = {}) => {
+    const { fromDeepLink = false, autoDownload = false, quality, mode = null } = options;
     const urlToFetch = customUrl || url;
-    if (!urlToFetch.trim()) return;
+    if (!urlToFetch.trim()) return null;
 
     setIsLoading(true);
     setError(null);
@@ -103,7 +111,12 @@ function HomeContent() {
     setAmbiguous(null);
 
     try {
-      const response = await fetch(`/api/info?url=${encodeURIComponent(urlToFetch)}`);
+      let infoUrl = `/api/info?url=${encodeURIComponent(urlToFetch)}`;
+      if (mode === 'video' || mode === 'playlist') {
+        infoUrl += `&mode=${mode}`;
+      }
+
+      const response = await fetch(infoUrl);
       const data = await response.json();
 
       if (!response.ok) {
@@ -113,13 +126,31 @@ function HomeContent() {
       if (data.type === 'ambiguous') {
         setAmbiguous(data);
         if (!fromDeepLink) setUrl(urlToFetch);
-        return;
+        return data;
       }
 
       setMetadata(data);
       if (!fromDeepLink) setUrl(urlToFetch);
+
+      if (autoDownload && data.type === 'video') {
+        const format = pickFormatForQuality(data.formats, quality);
+        if (format) {
+          handleDownloadRef.current?.(
+            data.id,
+            data.title,
+            format.quality,
+            format.size,
+            data.thumbnail
+          );
+        }
+      } else if (autoDownload && data.type === 'playlist') {
+        handleBatchDownloadRef.current?.(data.videos, quality);
+      }
+
+      return data;
     } catch (err) {
       setError(err.message || 'An unexpected error occurred. Please check your link.');
+      return null;
     } finally {
       setIsLoading(false);
     }
@@ -455,6 +486,23 @@ function HomeContent() {
     },
     [startServerDownload]
   );
+
+  handleDownloadRef.current = handleDownload;
+  handleBatchDownloadRef.current = handleBatchDownload;
+
+  useEffect(() => {
+    if (deepLinkHandled.current) return;
+    const deepUrl = searchParams.get('url');
+    if (!deepUrl) return;
+
+    deepLinkHandled.current = true;
+    const { quality, autoDownload, mode } = parseDeepLinkFlags(searchParams);
+
+    setUrl(deepUrl);
+    handleAnalyze(deepUrl, { fromDeepLink: true, autoDownload, quality, mode });
+    window.history.replaceState({}, '', window.location.pathname);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const handleRemoveQueueItem = async (taskId) => {
     if (eventSourcesRef.current[taskId]) {

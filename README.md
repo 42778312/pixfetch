@@ -9,8 +9,7 @@ A self-hosted YouTube video and playlist downloader built with Next.js 16, `@dis
 - Fast stream mode — pipe video directly to the browser
 - Clip downloads — trim a time range before saving
 - Smart URL parsing (Shorts, music.youtube.com, bare video IDs, messy pastes)
-- Deep links: open `/?url=<youtube-url>` to auto-analyze
-- YouTube bookmarklet (see Settings panel)
+- Deep links and YouTube-style routes (`/watch`, `/v/ID`, `/p/ID`) with optional auto-download
 - Optional [yt-dlp](https://github.com/yt-dlp/yt-dlp) fallback for reliability
 
 ## Requirements
@@ -43,15 +42,43 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### Deep link from YouTube
 
-Share or open:
+Share or open (auto-analyzes; add `&download=1` to start download immediately):
 
 ```
-http://localhost:3000/?url=https://www.youtube.com/watch?v=VIDEO_ID
+http://localhost:3000/?url=https://www.youtube.com/watch?v=VIDEO_ID&download=1&quality=720p
 ```
+
+### Localhost URL tricks
+
+Change the domain in a YouTube URL from `youtube.com` to `localhost:3000` and keep the path:
+
+```
+http://localhost:3000/watch?v=VIDEO_ID
+```
+
+Short links:
+
+```
+http://localhost:3000/v/VIDEO_ID
+http://localhost:3000/p/PLAYLIST_ID
+http://localhost:3000/playlist?list=PLAYLIST_ID
+```
+
+Add `?quality=1080p` or `?quality=Audio%20Only` to any of the above to override the default 720p.
 
 ### Bookmarklet
 
-Open **Settings** in the app header and drag the bookmarklet link to your bookmarks bar.
+Open **Settings** in the app header and drag the bookmarklet link to your bookmarks bar. It opens the current YouTube page here and starts a download at your chosen quick-link quality.
+
+### Test checklist (localhost)
+
+1. `http://localhost:3000/watch?v=dQw4w9WgXcQ` — analyze + 720p download starts
+2. `http://localhost:3000/v/dQw4w9WgXcQ?quality=1080p` — 1080p download
+3. `http://localhost:3000/p/PL0Zuz27SZ-6NS8GXt5nPrcYpust89zq_b` — playlist batch queue
+4. Bookmarklet on a YouTube tab — new tab downloads on localhost
+5. `watch?v=...&list=...` without `mode` — chooser shown, no auto-download until resolved
+
+Analyze only (no auto-download): `http://localhost:3000/?url=https://www.youtube.com/watch?v=VIDEO_ID`
 
 ## API Routes
 
