@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowDownCircle, Video, Music, Download, Trash2, Zap, CheckCircle2 } from 'lucide-react';
+import { ArrowDownCircle, Video, Music, Download, Trash2, Zap, CheckCircle2, Cloud, ExternalLink } from 'lucide-react';
 import { cn } from '../lib/cn';
 
 const ACTIVE_STATUSES = ['connecting', 'converting', 'downloading', 'merging'];
@@ -28,12 +28,12 @@ export default function DownloadQueue({ queue, onClearQueue, onRemoveItem, showS
     }
   };
 
-  const getStatusLabel = (status, progress = 0) => {
+  const getStatusLabel = (status, progress = 0, destination) => {
     switch (status) {
       case 'completed':
-        return 'Done!';
+        return destination === 'google-drive' ? 'On Drive!' : 'Done!';
       case 'downloading':
-        return 'Downloading';
+        return destination === 'google-drive' ? 'Uploading' : 'Downloading';
       case 'merging':
         return 'Muxing';
       case 'connecting':
@@ -145,6 +145,9 @@ export default function DownloadQueue({ queue, onClearQueue, onRemoveItem, showS
                         {item.title}
                       </h4>
                       <div className="flex items-center gap-2 mt-1">
+                        {item.destination === 'google-drive' && (
+                          <Cloud className="w-3 h-3 text-blue-600 flex-shrink-0" />
+                        )}
                         <span className="text-[9px] font-bold text-neutral-500">{item.size}</span>
                         <span className="w-1 h-1 bg-brand-black" />
                         <span className="text-[9px] font-bold px-1.5 py-0.5 bg-white border-2 border-brand-black rounded">
@@ -166,7 +169,7 @@ export default function DownloadQueue({ queue, onClearQueue, onRemoveItem, showS
                         )}
                       >
                         {item.status === 'completed' && <CheckCircle2 className="w-3 h-3" />}
-                        {getStatusLabel(item.status, item.progress)}
+                        {getStatusLabel(item.status, item.progress, item.destination)}
                       </span>
 
                       {(item.status === 'downloading' || item.status === 'connecting') && item.progress > 0 && (
@@ -178,7 +181,20 @@ export default function DownloadQueue({ queue, onClearQueue, onRemoveItem, showS
                         </div>
                       )}
 
-                      {item.status === 'completed' && showSaveButton ? (
+                      {item.status === 'completed' && item.webViewLink ? (
+                        <motion.a
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          href={item.webViewLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 bg-blue-50 border-2 border-brand-black font-bold px-2.5 py-1 rounded-lg text-[9px]"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          Open in Drive
+                        </motion.a>
+                      ) : item.status === 'completed' && showSaveButton ? (
                         <motion.a
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}

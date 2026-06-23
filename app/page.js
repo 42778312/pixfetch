@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, Suspense, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from '../components/Header';
 import BackgroundGraphics from '../components/BackgroundGraphics';
@@ -10,7 +11,8 @@ import VideoDetails from '../components/VideoDetails';
 import PlaylistDetails from '../components/PlaylistDetails';
 import DownloadQueue from '../components/DownloadQueue';
 import SettingsPanel from '../components/SettingsPanel';
-import { Zap, ArrowRight } from 'lucide-react';
+import { Zap, ArrowRight, Cloud } from 'lucide-react';
+import GoogleAuthBar from '../components/GoogleAuthBar';
 import { loadSettings, saveSettings, createDownloadManager } from '../lib/downloadManager';
 import { parseDeepLinkFlags, pickFormatForQuality } from '../lib/deepLink';
 import {
@@ -30,6 +32,8 @@ const ACTIVE_STATUSES = ['connecting', 'converting', 'downloading', 'merging'];
 
 function HomeContent() {
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
+  const googleDriveConnected = !!session?.user;
   const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -46,6 +50,7 @@ function HomeContent() {
   const settingsRef = useRef(settings);
   const startServerDownloadRef = useRef(null);
   const startStreamDownloadRef = useRef(null);
+  const startGoogleDriveDownloadRef = useRef(null);
   const handleDownloadRef = useRef(null);
   const handleBatchDownloadRef = useRef(null);
 
@@ -56,7 +61,9 @@ function HomeContent() {
       downloadManagerRef.current = createDownloadManager({
         concurrency: settingsRef.current.concurrency,
         onStart: (job, onDone) => {
-          if (job.useStream) {
+          if (job.useGoogleDrive) {
+            startGoogleDriveDownloadRef.current?.(job, onDone);
+          } else if (job.useStream) {
             startStreamDownloadRef.current?.(job, onDone);
           } else {
             startServerDownloadRef.current?.(job, onDone);
@@ -268,6 +275,73 @@ function HomeContent() {
   );
   startServerDownloadRef.current = startServerDownload;
 
+  const startGoogleDriveDownload = useCallback(
+    (item, onDone) => {
+      const taskId = item.id;
+      const { videoId, title, quality, size, clipStart, clipEnd } = item;
+
+      try {
+        let url = `/api/cloud/google-drive?id=${encodeURIComponent(videoId)}&quality=${encodeURIComponent(quality)}&title=${encodeURIComponent(title)}&taskId=${encodeURIComponent(taskId)}`;
+        if (size) url += `&size=${encodeURIComponent(size)}`;
+        if (clipStart != null) url += `&start=${clipStart}`;
+        if (clipEnd != null) url += `&end=${clipEnd}`;
+
+        const es = new EventSource(url);
+        eventSourcesRef.current[taskId] = es;
+
+        es.onmessage = (event) => {
+          let data;
+          try {
+            data = JSON.parse(event.data);
+          } catch {
+            return;
+          }
+
+          updateQueueItem(taskId, {
+            status: data.status,
+            progress: data.progress,
+            speed: data.speed,
+            eta: data.eta,
+            errorMessage: data.status === 'error' ? data.eta : undefined,
+            webViewLink: data.webViewLink,
+            destination: 'google-drive',
+          });
+
+          if (data.status === 'error') {
+            es.close();
+            finishDownloadTask(taskId, taskId);
+            onDone();
+            return;
+          }
+
+          if (data.status === 'completed') {
+            es.close();
+            finishDownloadTask(taskId, taskId);
+            onDone();
+          }
+        };
+
+        es.onerror = () => {
+          updateQueueItem(taskId, {
+            status: 'error',
+            progress: 0,
+            eta: 'Connection lost',
+            speed: '0 MB/s',
+            errorMessage: 'Google Drive upload connection lost',
+          });
+          es.close();
+          finishDownloadTask(taskId, taskId);
+          onDone();
+        };
+      } catch {
+        finishDownloadTask(taskId, taskId);
+        onDone();
+      }
+    },
+    [finishDownloadTask, updateQueueItem]
+  );
+  startGoogleDriveDownloadRef.current = startGoogleDriveDownload;
+
   const saveFileToDevice = useCallback(
     async (taskId, videoId, title, quality, size, clipStart, clipEnd) => {
       const ext = quality === 'Audio Only' ? 'mp3' : 'mp4';
@@ -422,7 +496,8 @@ function HomeContent() {
     async (id, title, quality, size, thumbnail, clipOptions = {}) => {
       const taskId = `${id}-${quality}-${Date.now()}`;
       const hasClip = clipOptions.start != null || clipOptions.end != null;
-      const useStream = (settings.useFastStream || hasClip) && !clipOptions.forceServer;
+      const useGoogleDrive = googleDriveConnected;
+      const useStream = !useGoogleDrive && (settings.useFastStream || hasClip) && !clipOptions.forceServer;
 
       const serverStatus = await fetchDownloadStatus(id, quality, size).catch(() => ({ status: 'none', progress: 0 }));
       const resumeKey = getResumeKey(id, quality);
@@ -438,29 +513,33 @@ function HomeContent() {
         thumbnail,
         progress: resumeProgress,
         speed: '0 MB/s',
-        eta:
-          serverStatus.status === 'complete'
+        eta: useGoogleDrive
+          ? 'Connecting to Google Drive...'
+          : serverStatus.status === 'complete'
             ? 'Ready to save...'
             : serverStatus.status === 'partial' || resumeProgress > 0
               ? 'Resuming...'
               : useStream
                 ? 'Preparing stream...'
                 : 'Connecting...',
-        status: serverStatus.status === 'complete' ? 'downloading' : 'connecting',
+        status: serverStatus.status === 'complete' && !useGoogleDrive ? 'downloading' : 'connecting',
         clipStart: clipOptions.start ?? null,
         clipEnd: clipOptions.end ?? null,
-        useStream: serverStatus.status === 'partial' ? false : useStream,
+        useStream: useGoogleDrive ? false : serverStatus.status === 'partial' ? false : useStream,
+        useGoogleDrive,
+        destination: useGoogleDrive ? 'google-drive' : 'local',
       };
 
       setQueue((prev) => [newItem, ...prev]);
       setDownloadingIds((prev) => [...prev, taskId]);
       ensureDownloadManager().enqueue([newItem]);
     },
-    [settings.useFastStream]
+    [settings.useFastStream, googleDriveConnected]
   );
 
   const handleBatchDownload = useCallback(
     (videos, quality) => {
+      const useGoogleDrive = googleDriveConnected;
       const jobs = videos.map((video) => {
         const taskId = `${video.id}-${quality}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
         return {
@@ -472,11 +551,13 @@ function HomeContent() {
           thumbnail: video.thumbnail,
           progress: 0,
           speed: '0 MB/s',
-          eta: 'Queued...',
+          eta: useGoogleDrive ? 'Queued for Google Drive...' : 'Queued...',
           status: 'connecting',
           clipStart: null,
           clipEnd: null,
           useStream: false,
+          useGoogleDrive,
+          destination: useGoogleDrive ? 'google-drive' : 'local',
         };
       });
 
@@ -484,7 +565,7 @@ function HomeContent() {
       setDownloadingIds((prev) => [...prev, ...jobs.map((j) => j.id)]);
       ensureDownloadManager().enqueue(jobs);
     },
-    [startServerDownload]
+    [googleDriveConnected]
   );
 
   handleDownloadRef.current = handleDownload;
@@ -617,12 +698,14 @@ function HomeContent() {
                       data={metadata}
                       onDownload={handleDownload}
                       downloadState={getVideoDownloadState(metadata.id)}
+                      googleDriveConnected={googleDriveConnected}
                     />
                   ) : (
                     <PlaylistDetails
                       data={metadata}
                       onDownloadSelected={handleBatchDownload}
                       downloadStates={playlistDownloadStates}
+                      googleDriveConnected={googleDriveConnected}
                     />
                   )}
                 </motion.div>
@@ -642,7 +725,7 @@ function HomeContent() {
                       className="inline-flex items-center gap-2 bg-brand-yellow border-4 border-brand-black px-4 py-2 rounded-full text-xs font-bold box-shadow-pixel-sm"
                     >
                       <Zap className="w-4 h-4 fill-brand-black" />
-                      <span>INSTANT MP4 & MP3 — PLAYLISTS & CLIPS</span>
+                      <span>INSTANT MP4 & MP3 — GOOGLE DRIVE & PLAYLISTS</span>
                     </motion.div>
 
                     <motion.h1
@@ -662,8 +745,21 @@ function HomeContent() {
                       transition={{ delay: 0.3 }}
                       className="text-base sm:text-lg text-neutral-600 max-w-md mx-auto font-medium leading-relaxed"
                     >
-                      Paste a link above to parse files, pick quality, or extract audio. Shorts, playlists, and clip trims supported.
+                      Paste a link above to parse files, pick quality, or extract audio. Sign in with Google to save straight to your Drive.
                     </motion.p>
+
+                    <motion.div
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.35 }}
+                      className="flex flex-col items-center gap-3"
+                    >
+                      <div className="flex items-center gap-2 text-xs font-bold text-neutral-500">
+                        <Cloud className="w-4 h-4" />
+                        <span>Save directly to Google Drive — no account needed on this site</span>
+                      </div>
+                      <GoogleAuthBar />
+                    </motion.div>
 
                     <motion.div
                       initial={{ y: 20, opacity: 0 }}

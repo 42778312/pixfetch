@@ -1,24 +1,10 @@
 import { checkRateLimit } from '@/lib/rateLimit';
-import { streamVideoToResponse } from '@/lib/downloader';
 import { isValidVideoId, isValidQuality, sanitizeFilename } from '@/lib/constants';
 import { mapYoutubeError } from '@/lib/errors';
+import { resolveStream } from '@/lib/resolveStream';
 import { Readable } from 'stream';
-import { createRequire } from 'module';
-
-const require = createRequire(import.meta.url);
 
 export const dynamic = 'force-dynamic';
-
-async function resolveStream(videoId, quality, clipOptions) {
-  const { ensureYtDlpBinary, streamVideoWithYtDlp } = require('@/lib/ytdlp');
-
-  try {
-    await ensureYtDlpBinary();
-    return streamVideoWithYtDlp(videoId, quality, clipOptions);
-  } catch {
-    return streamVideoToResponse(videoId, quality, clipOptions);
-  }
-}
 
 export async function GET(request) {
   const limited = checkRateLimit('download', request);

@@ -2,10 +2,10 @@
 
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Download, List, CheckSquare, Square, Search, Loader2 } from 'lucide-react';
+import { Download, List, CheckSquare, Square, Search, Loader2, Cloud } from 'lucide-react';
 import { cn } from '../lib/cn';
 
-export default function PlaylistDetails({ data, onDownloadSelected, downloadStates = {} }) {
+export default function PlaylistDetails({ data, onDownloadSelected, downloadStates = {}, googleDriveConnected = false }) {
   const [selectedIds, setSelectedIds] = useState(() => data.videos.map((v) => v.id));
   const [filterQuery, setFilterQuery] = useState('');
   const [downloadFormat, setDownloadFormat] = useState('720p');
@@ -85,10 +85,20 @@ export default function PlaylistDetails({ data, onDownloadSelected, downloadStat
               whileTap={{ scale: 0.98 }}
               onClick={handleDownloadBatch}
               disabled={selectedIds.length === 0}
-              className="bg-brand-yellow border-4 border-brand-black disabled:opacity-40 text-brand-black text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 box-shadow-pixel-sm"
+              className={cn(
+                'border-4 border-brand-black disabled:opacity-40 text-brand-black text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 box-shadow-pixel-sm',
+                googleDriveConnected ? 'bg-blue-50' : 'bg-brand-yellow'
+              )}
             >
-              <Download className="w-3.5 h-3.5" />
-              <span>Get {selectedIds.length} videos</span>
+              {googleDriveConnected ? (
+                <Cloud className="w-3.5 h-3.5" />
+              ) : (
+                <Download className="w-3.5 h-3.5" />
+              )}
+              <span>
+                {googleDriveConnected ? 'Save' : 'Get'} {selectedIds.length} videos
+                {googleDriveConnected ? ' to Drive' : ''}
+              </span>
             </motion.button>
           </div>
         </div>

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Download, Music, Video, Scissors, Loader2 } from 'lucide-react';
+import { Download, Music, Video, Scissors, Loader2, Cloud } from 'lucide-react';
 import { cn } from '../lib/cn';
 
 function parseTimeInput(value) {
@@ -29,7 +29,14 @@ const STATUS_LABELS = {
   merging: 'Muxing...',
 };
 
-export default function VideoDetails({ data, onDownload, downloadState }) {
+const DRIVE_STATUS_LABELS = {
+  connecting: 'Connecting to Drive...',
+  converting: 'Processing...',
+  downloading: 'Uploading to Drive...',
+  merging: 'Muxing...',
+};
+
+export default function VideoDetails({ data, onDownload, downloadState, googleDriveConnected = false }) {
   const [selectedFormat, setSelectedFormat] = useState(data.formats[0]);
   const [clipEnabled, setClipEnabled] = useState(false);
   const [clipStart, setClipStart] = useState('');
@@ -39,6 +46,7 @@ export default function VideoDetails({ data, onDownload, downloadState }) {
   const maxDuration = data.durationSeconds || 0;
   const isDownloading = downloadState != null;
   const progress = downloadState?.progress ?? 0;
+  const statusLabels = googleDriveConnected ? DRIVE_STATUS_LABELS : STATUS_LABELS;
 
   const handleDownload = () => {
     let clipOptions = {};
@@ -191,7 +199,7 @@ export default function VideoDetails({ data, onDownload, downloadState }) {
             {isDownloading && (
               <div className="space-y-1.5">
                 <div className="flex justify-between text-xs font-bold">
-                  <span>{STATUS_LABELS[downloadState.status] || 'Working...'}</span>
+                  <span>{statusLabels[downloadState.status] || 'Working...'}</span>
                   <span>{progress}%</span>
                 </div>
                 <div className="w-full h-3 bg-neutral-100 border-2 border-brand-black rounded-full overflow-hidden">
@@ -214,13 +222,22 @@ export default function VideoDetails({ data, onDownload, downloadState }) {
                 'w-full py-3.5 sm:py-4 rounded-xl font-bold flex items-center justify-center gap-2 border-4 transition-all',
                 isDownloading
                   ? 'bg-neutral-100 border-brand-black/30 text-neutral-500 cursor-not-allowed'
-                  : 'bg-brand-yellow border-brand-black text-brand-black box-shadow-pixel hover:box-shadow-pixel-lg'
+                  : googleDriveConnected
+                    ? 'bg-blue-50 border-brand-black text-brand-black box-shadow-pixel hover:box-shadow-pixel-lg'
+                    : 'bg-brand-yellow border-brand-black text-brand-black box-shadow-pixel hover:box-shadow-pixel-lg'
               )}
             >
               {isDownloading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>{STATUS_LABELS[downloadState.status] || 'Downloading...'}</span>
+                  <span>{statusLabels[downloadState.status] || 'Downloading...'}</span>
+                </>
+              ) : googleDriveConnected ? (
+                <>
+                  <Cloud className="w-5 h-5" />
+                  <span>
+                    Save to Google Drive {clipEnabled ? 'clip' : ''} — {selectedFormat.quality} ({selectedFormat.size})
+                  </span>
                 </>
               ) : (
                 <>

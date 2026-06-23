@@ -2,8 +2,9 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Settings, Zap } from 'lucide-react';
+import { Settings, Zap, Cloud } from 'lucide-react';
 import { GithubIcon as Github } from './BrandIcons';
+import GoogleAuthBar from './GoogleAuthBar';
 
 export default function Header({ onOpenSettings }) {
   return (
@@ -29,22 +30,35 @@ export default function Header({ onOpenSettings }) {
         </div>
       </div>
 
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 0.15 }}
-        className="hidden sm:flex items-center gap-2 bg-brand-yellow/40 border-4 border-brand-black px-3 py-1.5 rounded-full text-xs font-bold"
-      >
-        <Zap className="w-3.5 h-3.5 fill-brand-black" />
-        <span>Server Ready</span>
-        <motion.span
-          animate={{ scale: [1, 1.3, 1] }}
-          transition={{ repeat: Infinity, duration: 2 }}
-          className="w-2 h-2 bg-brand-black"
-        />
-      </motion.div>
+      <div className="hidden sm:flex items-center gap-2">
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.15 }}
+          className="flex items-center gap-2 bg-brand-yellow/40 border-4 border-brand-black px-3 py-1.5 rounded-full text-xs font-bold"
+        >
+          <Zap className="w-3.5 h-3.5 fill-brand-black" />
+          <span>Server Ready</span>
+          <motion.span
+            animate={{ scale: [1, 1.3, 1] }}
+            transition={{ repeat: Infinity, duration: 2 }}
+            className="w-2 h-2 bg-brand-black"
+          />
+        </motion.div>
+
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.2 }}
+          className="hidden md:flex items-center gap-2 bg-blue-50 border-4 border-brand-black px-3 py-1.5 rounded-full text-xs font-bold"
+        >
+          <Cloud className="w-3.5 h-3.5 text-brand-black" />
+          <span>Google Drive</span>
+        </motion.div>
+      </div>
 
       <div className="flex items-center gap-2">
+        <GoogleAuthBar compact />
         <motion.a
           whileHover={{ scale: 1.08, y: -2 }}
           whileTap={{ scale: 0.95 }}
