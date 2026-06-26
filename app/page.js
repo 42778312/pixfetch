@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense, useMemo } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useSession } from 'next-auth/react';
+import { useSession } from '../lib/session';
 import { motion, AnimatePresence } from 'framer-motion';
 import Header from '../components/Header';
 import BackgroundGraphics from '../components/BackgroundGraphics';

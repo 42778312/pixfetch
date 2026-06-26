@@ -2,9 +2,9 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { signIn, signOut, useSession } from 'next-auth/react';
 import { LogOut, Loader2 } from 'lucide-react';
 import { cn } from '../lib/cn';
+import { signIn, signOut, useSession } from '../lib/session';
 
 function GoogleIcon({ className }) {
   return (
@@ -30,8 +30,13 @@ function GoogleIcon({ className }) {
 }
 
 export default function GoogleAuthBar({ compact = false }) {
-  const { data: session, status } = useSession();
+  const { data: session, status, refresh } = useSession();
   const isLoading = status === 'loading';
+
+  const handleSignOut = async () => {
+    await signOut();
+    await refresh();
+  };
 
   if (isLoading) {
     return (
@@ -64,7 +69,7 @@ export default function GoogleAuthBar({ compact = false }) {
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => signOut()}
+          onClick={handleSignOut}
           className="p-2 bg-white border-2 border-brand-black rounded-lg hover:bg-neutral-50 transition-colors"
           title="Sign out of Google"
         >
@@ -78,7 +83,7 @@ export default function GoogleAuthBar({ compact = false }) {
     <motion.button
       whileHover={{ scale: 1.03, y: -1 }}
       whileTap={{ scale: 0.97 }}
-      onClick={() => signIn('google', { callbackUrl: window.location.href }, { prompt: 'consent' })}
+      onClick={() => signIn()}
       className={cn(
         'flex items-center gap-2 bg-white border-4 border-brand-black rounded-xl font-bold text-brand-black box-shadow-pixel-sm hover:box-shadow-pixel transition-shadow',
         compact ? 'px-2.5 py-1.5 text-[10px]' : 'px-3 sm:px-4 py-2 text-xs sm:text-sm'

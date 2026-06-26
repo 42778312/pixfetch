@@ -15,7 +15,7 @@ A bold, self-hosted YouTube downloader with a retro pixel-art UI. Grab single vi
 - **Smart URL parsing** — Shorts, music.youtube.com, bare video IDs, messy pastes
 
 ### Google Drive
-- **Sign in with Google** — OAuth via NextAuth (no separate account on this site)
+- **Sign in with Google** — OAuth with Google Drive scope (no separate account on this site)
 - **Save to Drive** — when signed in, downloads upload directly to your Google Drive
 - **Live upload progress** — queue shows upload speed, ETA, and a Drive link when done
 
@@ -23,7 +23,7 @@ A bold, self-hosted YouTube downloader with a retro pixel-art UI. Grab single vi
 - **Deep links** — `/?url=...&download=1&quality=720p` to analyze and auto-download
 - **YouTube-style routes** — `/watch`, `/v/ID`, `/p/ID`, `/playlist?list=ID`
 - **Bookmarklet** — drag from Settings to start a download from any YouTube tab
-- **Optional [yt-dlp](https://github.com/yt-dlp/yt-dlp) fallback** when ytdl-core fails
+- **yt-dlp** — YouTube metadata, downloads, and playlists
 
 ### UI
 - Pixel-art neo-brutalist design (Press Start 2P + Outfit fonts, Framer Motion animations)
@@ -32,26 +32,55 @@ A bold, self-hosted YouTube downloader with a retro pixel-art UI. Grab single vi
 
 ## Requirements
 
-- Node.js 18+
-- npm
+**Docker (recommended):** Docker Compose — used for Coolify and local production-like runs.
 
-Bundled via npm:
+**Local development:** Node.js 18+, Python 3.12+, ffmpeg, yt-dlp
 
-- `ffmpeg-static` — audio conversion and A/V muxing
+## Deploy with Coolify (Docker Compose)
 
-Optional:
+1. Push this repo to GitHub/GitLab
+2. In Coolify, create a new **Docker Compose** resource and point it at this repository
+3. Set environment variables (or upload `.env` from [`.env.example`](.env.example)):
 
-- `yt-dlp` on PATH (or set `YT_DLP_PATH`) — used when ytdl-core fails
+| Variable | Example |
+|----------|---------|
+| `APP_URL` | `https://pixfetch.yourdomain.com` |
+| `GOOGLE_CLIENT_ID` | From Google Cloud Console |
+| `GOOGLE_CLIENT_SECRET` | From Google Cloud Console |
+| `SESSION_SECRET` | Random 32+ char string |
 
-## Setup
+4. Expose the **`web`** service on port **3000** and assign your domain in Coolify
+5. Add Google OAuth redirect URI: `https://pixfetch.yourdomain.com/api/auth/callback/google`
+
+The `web` container proxies `/api/*` to the internal `api` container. Only `web` needs a public URL.
+
+```bash
+# Local smoke test with Compose
+cp .env.example .env
+# Edit .env, then:
+docker compose up --build
+```
+
+## Local development
+
+**Terminal 1 — Python API:**
+
+```bash
+cd backend
+python -m pip install -r requirements.txt
+cp .env.example .env
+# Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SESSION_SECRET; API_BASE_URL=http://localhost:3000
+python -m uvicorn app.main:app --reload --port 8000
+```
+
+**Terminal 2 — Next.js UI:**
 
 ```bash
 npm install
-cp .env.example .env.local
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000). Next.js proxies `/api/*` to port 8000.
 
 ### Google Drive (optional)
 
@@ -59,13 +88,14 @@ Open [http://localhost:3000](http://localhost:3000).
 2. Enable the **Google Drive API**
 3. Create OAuth 2.0 credentials (Web application)
 4. Add redirect URI: `http://localhost:3000/api/auth/callback/google`
-5. Copy client ID and secret into `.env.local`:
+5. Copy credentials into `backend/.env`:
 
 ```env
-NEXTAUTH_SECRET=generate-a-random-32-char-string-here
-NEXTAUTH_URL=http://localhost:3000
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
+SESSION_SECRET=generate-a-random-32-char-string-here
+FRONTEND_URL=http://localhost:3000
+API_BASE_URL=http://localhost:3000
 ```
 
 Sign in from the header or hero section. When connected, downloads go to Google Drive instead of the browser.
@@ -128,8 +158,11 @@ Analyze only (no auto-download): `http://localhost:3000/?url=https://www.youtube
 | `GET /api/download/file?id=&quality=` | Serve completed file from disk |
 | `GET /api/download/status?id=&quality=` | Check partial/complete download state |
 | `GET /api/cloud/google-drive?id=&quality=&title=&taskId=` | SSE upload to Google Drive |
-| `GET /api/auth/[...nextauth]` | NextAuth session and OAuth callbacks |
-| `GET /api/health` | ytdl-core / yt-dlp health check |
+| `GET /api/auth/google` | Start Google OAuth |
+| `GET /api/auth/callback/google` | OAuth callback |
+| `GET /api/auth/session` | Current session |
+| `POST /api/auth/signout` | Sign out |
+| `GET /api/health` | yt-dlp / ffmpeg health check |
 
 ## Scripts
 
@@ -142,11 +175,10 @@ npm run lint   # ESLint
 
 ## Tech stack
 
-- **Next.js 16** — App Router, React 19
-- **@distube/ytdl-core** + **@distube/ytpl** — YouTube metadata and streams
-- **next-auth** — Google OAuth and session management
+- **Next.js 16** — App Router, React 19 (frontend UI)
+- **FastAPI** — Python API (downloads, OAuth, Drive)
+- **yt-dlp** + **ffmpeg** — YouTube extraction and transcoding
 - **Tailwind CSS** + **Framer Motion** — pixel UI and animations
-- **ffmpeg-static** — transcoding and muxing
 
 ## Notes
 

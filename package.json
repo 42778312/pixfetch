@@ -6,18 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "postinstall": "node scripts/ensure-ytdlp.js"
+    "lint": "eslint"
   },
   "dependencies": {
-    "@distube/ytdl-core": "^4.16.12",
-    "@distube/ytpl": "^1.2.4",
     "clsx": "^2.1.1",
-    "ffmpeg-static": "^5.3.0",
     "framer-motion": "^12.40.0",
     "lucide-react": "^1.21.0",
     "next": "16.2.9",
-    "next-auth": "^4.24.14",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "tailwind-merge": "^3.6.0"
