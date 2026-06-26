@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback, Suspense, useMemo } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -759,6 +760,12 @@ function HomeContent() {
                         <span>Save directly to Google Drive — no account needed on this site</span>
                       </div>
                       <GoogleAuthBar />
+                      <p className="text-[10px] sm:text-xs text-neutral-500 max-w-sm leading-relaxed">
+                        We only upload files you download here — not your other Drive files.{' '}
+                        <Link href="/privacy" className="underline hover:text-brand-black font-bold">
+                          Privacy Policy
+                        </Link>
+                      </p>
                     </motion.div>
 
                     <motion.div
@@ -812,7 +819,19 @@ function HomeContent() {
       </main>
 
       <footer className="text-center py-4 border-t-4 border-brand-black text-xs text-neutral-500 font-bold bg-brand-yellow/30 flex-shrink-0 select-none">
-        &copy; {new Date().getFullYear()} PIXFETCH Studio — MIT License
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+          <span>&copy; {new Date().getFullYear()} PIXFETCH Studio</span>
+          <span aria-hidden="true">·</span>
+          <Link href="/privacy" className="hover:text-brand-black hover:underline">
+            Privacy
+          </Link>
+          <span aria-hidden="true">·</span>
+          <Link href="/terms" className="hover:text-brand-black hover:underline">
+            Terms
+          </Link>
+          <span aria-hidden="true">·</span>
+          <span>MIT License</span>
+        </div>
       </footer>
 
       <AnimatePresence>
