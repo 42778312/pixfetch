@@ -6,19 +6,33 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 const { fetchPlaylistInfo } = require('@/lib/playlistFetcher.cjs');
+const { isServerlessRuntime } = require('@/lib/storagePaths');
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 async function fetchVideoInfoSafe(url) {
-  try {
+  const { getVideoInfoWithYtDlp, mapYtDlpToVideoInfo } = require('@/lib/ytdlp');
+
+  async function tryYtDlp() {
+    const data = await getVideoInfoWithYtDlp(url);
+    return mapYtDlpToVideoInfo(data);
+  }
+
+  async function tryYtdl() {
     return await getVideoInfo(url);
-  } catch (ytdlError) {
+  }
+
+  const primary = isServerlessRuntime() ? tryYtDlp : tryYtdl;
+  const fallback = isServerlessRuntime() ? tryYtdl : tryYtDlp;
+
+  try {
+    return await primary();
+  } catch (primaryError) {
     try {
-      const { getVideoInfoWithYtDlp, mapYtDlpToVideoInfo } = require('@/lib/ytdlp');
-      const data = await getVideoInfoWithYtDlp(url);
-      return mapYtDlpToVideoInfo(data);
+      return await fallback();
     } catch {
-      throw ytdlError;
+      throw primaryError;
     }
   }
 }
