@@ -29,6 +29,18 @@ import {
   parseSizeToBytes,
 } from '../lib/clientDownload';
 
+async function parseJsonResponse(response) {
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error(
+      response.ok
+        ? 'Server returned an unexpected response.'
+        : `Server error (${response.status}). Please try again in a moment.`
+    );
+  }
+  return response.json();
+}
+
 const ACTIVE_STATUSES = ['connecting', 'converting', 'downloading', 'merging'];
 
 function HomeContent() {
@@ -125,7 +137,7 @@ function HomeContent() {
       }
 
       const response = await fetch(infoUrl);
-      const data = await response.json();
+      const data = await parseJsonResponse(response);
 
       if (!response.ok) {
         throw new Error(data.error || 'Failed to fetch details');
@@ -177,7 +189,7 @@ function HomeContent() {
       const response = await fetch(
         `/api/info?url=${encodeURIComponent(targetUrl)}&mode=${mode}`
       );
-      const data = await response.json();
+      const data = await parseJsonResponse(response);
       if (!response.ok) throw new Error(data.error || 'Failed to fetch details');
       setMetadata(data);
     } catch (err) {
