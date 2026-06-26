@@ -29,6 +29,9 @@ async function fetchVideoInfoSafe(url) {
   try {
     return await primary();
   } catch (primaryError) {
+    // #region agent log
+    fetch('http://127.0.0.1:7715/ingest/24a1135b-fca3-4f00-9f43-cc6c874b060c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'07c1a4'},body:JSON.stringify({sessionId:'07c1a4',location:'app/api/info/route.js:fetchVideoInfoSafe',message:'primary fetcher failed',data:{serverless:isServerlessRuntime(),error:primaryError?.message?.slice(0,200)},timestamp:Date.now(),hypothesisId:'H4-H5'})}).catch(()=>{});
+    // #endregion
     try {
       return await fallback();
     } catch {
