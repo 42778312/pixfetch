@@ -15,7 +15,7 @@ A bold, self-hosted YouTube downloader with a retro pixel-art UI. Grab single vi
 - **Smart URL parsing** — Shorts, music.youtube.com, bare video IDs, messy pastes
 
 ### Google Drive
-- **Sign in with Google** — OAuth with Google Drive scope (no separate account on this site)
+- **Sign in with Google** — via [Clerk](https://clerk.com) with Google Drive scope
 - **Save to Drive** — when signed in, downloads upload directly to your Google Drive
 - **Live upload progress** — queue shows upload speed, ETA, and a Drive link when done
 
@@ -34,7 +34,29 @@ A bold, self-hosted YouTube downloader with a retro pixel-art UI. Grab single vi
 
 **Docker (recommended):** Docker Compose — used for Coolify and local production-like runs.
 
-**Local development:** Node.js 18+, Python 3.12+, ffmpeg, yt-dlp
+**Local development:** Node.js 20+, ffmpeg, yt-dlp, [Clerk](https://dashboard.clerk.com) account (for Google Drive sign-in)
+
+## Clerk + Google Drive setup
+
+PIXFETCH uses **Clerk** for authentication. Google Drive uploads use Clerk-managed Google OAuth tokens with the `drive.file` scope.
+
+1. Create an application at [dashboard.clerk.com](https://dashboard.clerk.com)
+2. Under **User & Authentication → Social connections**, enable **Google**
+3. In the Google connection settings, add this scope:
+   ```
+   https://www.googleapis.com/auth/drive.file
+   ```
+4. (Recommended) Disable other sign-in methods if you only want Google
+5. For **production**, add your own Google Cloud OAuth credentials in Clerk (required for custom scopes)
+6. Copy API keys into `.env`:
+
+```env
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+APP_URL=http://localhost:3000
+```
+
+Clerk handles OAuth redirects — you do **not** need `/api/auth/callback/google` in Google Cloud when using Clerk's shared dev keys. For production, use the redirect URI shown in the Clerk Google connection settings.
 
 ## Deploy with Coolify (Docker Compose)
 
@@ -45,60 +67,42 @@ A bold, self-hosted YouTube downloader with a retro pixel-art UI. Grab single vi
 | Variable | Example |
 |----------|---------|
 | `APP_URL` | `https://pixfetch.yourdomain.com` |
-| `GOOGLE_CLIENT_ID` | From Google Cloud Console |
-| `GOOGLE_CLIENT_SECRET` | From Google Cloud Console |
-| `SESSION_SECRET` | Random 32+ char string |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | From Clerk dashboard |
+| `CLERK_SECRET_KEY` | From Clerk dashboard |
 
 4. Expose the **`web`** service on port **3000** and assign your domain in Coolify
-5. Add Google OAuth redirect URI: `https://pixfetch.yourdomain.com/api/auth/callback/google`
-
-The `web` container proxies `/api/*` to the internal `api` container. Only `web` needs a public URL.
 
 ```bash
-# Local smoke test with Compose
 cp .env.example .env
 # Edit .env, then:
 docker compose up --build
 ```
 
-## Local development
+## Deploy to Vercel
 
-**Terminal 1 — Python API:**
+The frontend and API routes deploy to Vercel, but **full download functionality requires yt-dlp and ffmpeg on the server**. Vercel serverless functions do not include these tools and have execution time limits, so **Vercel is best for UI preview only**.
+
+For production downloads, use **Docker / Coolify** or another host where you can run Node.js with yt-dlp and ffmpeg installed.
 
 ```bash
-cd backend
-python -m pip install -r requirements.txt
-cp .env.example .env
-# Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SESSION_SECRET; API_BASE_URL=http://localhost:3000
-python -m uvicorn app.main:app --reload --port 8000
+npm run build
+# Connect repo in Vercel; set APP_URL, NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY, CLERK_SECRET_KEY
 ```
 
-**Terminal 2 — Next.js UI:**
+## Local development
+
+**Single Next.js fullstack app (frontend + API):**
 
 ```bash
 npm install
+cp .env.example .env
+# Set Clerk keys (see Clerk + Google Drive setup above)
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Next.js proxies `/api/*` to port 8000.
+Open [http://localhost:3000](http://localhost:3000). All `/api/*` routes are handled by Next.js.
 
-### Google Drive (optional)
-
-1. Create a project in [Google Cloud Console](https://console.cloud.google.com/)
-2. Enable the **Google Drive API**
-3. Create OAuth 2.0 credentials (Web application)
-4. Add redirect URI: `http://localhost:3000/api/auth/callback/google`
-5. Copy credentials into `backend/.env`:
-
-```env
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-SESSION_SECRET=generate-a-random-32-char-string-here
-FRONTEND_URL=http://localhost:3000
-API_BASE_URL=http://localhost:3000
-```
-
-Sign in from the header or hero section. When connected, downloads go to Google Drive instead of the browser.
+Sign in from the header or hero section. When connected via Clerk + Google, downloads go to Google Drive instead of the browser.
 
 ## Usage
 
@@ -138,12 +142,12 @@ Open **Settings** in the app header and drag the bookmarklet link to your bookma
 
 ### Test checklist (localhost)
 
-1. `http://localhost:3000/watch?v=dQw4w9WgXcQ` — analyze + 720p download starts
-2. `http://localhost:3000/v/dQw4w9WgXcQ?quality=1080p` — 1080p download
-3. `http://localhost:3000/p/PL0Zuz27SZ-6NS8GXt5nPrcYpust89zq_b` — playlist batch queue
-4. Bookmarklet on a YouTube tab — new tab downloads on localhost
-5. `watch?v=...&list=...` without `mode` — chooser shown, no auto-download until resolved
-6. Sign in with Google — download saves to Drive with progress in the queue
+1. `curl http://localhost:3000/api/health` — yt-dlp/ffmpeg status
+2. `http://localhost:3000/watch?v=dQw4w9WgXcQ` — analyze + 720p download starts
+3. `http://localhost:3000/v/dQw4w9WgXcQ?quality=1080p` — 1080p download
+4. `http://localhost:3000/p/PL0Zuz27SZ-6NS8GXt5nPrcYpust89zq_b` — playlist batch queue
+5. Bookmarklet on a YouTube tab — new tab downloads on localhost
+6. Sign in with Google (Clerk) — download saves to Drive with progress in the queue
 
 Analyze only (no auto-download): `http://localhost:3000/?url=https://www.youtube.com/watch?v=VIDEO_ID`
 
@@ -157,12 +161,10 @@ Analyze only (no auto-download): `http://localhost:3000/?url=https://www.youtube
 | `GET /api/download/stream?id=&quality=&start=&end=` | Direct browser stream |
 | `GET /api/download/file?id=&quality=` | Serve completed file from disk |
 | `GET /api/download/status?id=&quality=` | Check partial/complete download state |
-| `GET /api/cloud/google-drive?id=&quality=&title=&taskId=` | SSE upload to Google Drive |
-| `GET /api/auth/google` | Start Google OAuth |
-| `GET /api/auth/callback/google` | OAuth callback |
-| `GET /api/auth/session` | Current session |
-| `POST /api/auth/signout` | Sign out |
+| `GET /api/cloud/google-drive?id=&quality=&title=&taskId=` | SSE upload to Google Drive (requires Clerk session) |
 | `GET /api/health` | yt-dlp / ffmpeg health check |
+
+Authentication is handled by **Clerk** (not custom API routes).
 
 ## Scripts
 
@@ -175,8 +177,8 @@ npm run lint   # ESLint
 
 ## Tech stack
 
-- **Next.js 16** — App Router, React 19 (frontend UI)
-- **FastAPI** — Python API (downloads, OAuth, Drive)
+- **Next.js 16** — App Router, React 19, API routes (fullstack)
+- **Clerk** — Google sign-in and OAuth token management for Drive
 - **yt-dlp** + **ffmpeg** — YouTube extraction and transcoding
 - **Tailwind CSS** + **Framer Motion** — pixel UI and animations
 
@@ -185,7 +187,6 @@ npm run lint   # ESLint
 - Downloads are stored in `downloads/` (gitignored) and auto-cleaned after 24 hours
 - Google Drive uploads use the `drive.file` scope — only files created by this app
 - Public deployment may require rate limiting (enabled on API routes) and has YouTube ToS implications — intended for self-hosted use
-- Browser extensions (e.g. Grammarly, translation tools) can cause hydration warnings in dev; the root layout uses `suppressHydrationWarning` to handle this
 
 ## License
 

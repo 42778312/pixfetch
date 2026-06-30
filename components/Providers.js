@@ -1,7 +1,8 @@
 'use client';
 
-import { SessionProvider } from '../lib/session';
+import { ClerkProvider } from '@clerk/nextjs';
+import { clerkAppearance } from '@/lib/clerkAppearance';
 
 export default function Providers({ children }) {
-  return <SessionProvider>{children}</SessionProvider>;
+  return <ClerkProvider appearance={clerkAppearance}>{children}</ClerkProvider>;
 }

@@ -1,0 +1,16 @@
+{
+  "functions": {
+    "app/api/download/route.js": {
+      "maxDuration": 300
+    },
+    "app/api/download/stream/route.js": {
+      "maxDuration": 300
+    },
+    "app/api/cloud/google-drive/route.js": {
+      "maxDuration": 300
+    },
+    "app/api/info/route.js": {
+      "maxDuration": 60
+    }
+  }
+}

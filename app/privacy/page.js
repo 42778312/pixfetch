@@ -84,8 +84,8 @@ export default function PrivacyPage() {
           videos on our servers after the transfer completes.
         </p>
         <p className="mt-3">
-          OAuth tokens are stored in an encrypted session cookie (NextAuth JWT) so you stay signed
-          in. Tokens are used only to authenticate Drive uploads on your behalf.
+          Clerk manages your Google OAuth session and tokens so you stay signed in across visits.
+          Tokens are used only to authenticate Drive uploads on your behalf.
         </p>
       </LegalSection>
 
@@ -122,7 +122,7 @@ export default function PrivacyPage() {
       <LegalSection title="How long we keep data">
         <LegalList
           items={[
-            'Google OAuth tokens — until you sign out or your session expires; refresh tokens may be retained in session until revoked',
+            'Google OAuth tokens — managed by Clerk until you sign out or revoke access in Google Account settings',
             'Server request logs — retained according to our hosting provider\'s default retention (typically days to weeks)',
             'Downloaded media — not retained on our servers after upload or stream delivery completes',
           ]}

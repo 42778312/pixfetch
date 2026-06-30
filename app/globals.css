@@ -82,3 +82,16 @@
     box-shadow: 6px 6px 0 hsl(var(--brand-black));
   }
 }
+
+/* Hide Clerk branding if any default UI surfaces */
+.cl-footer,
+.cl-footerAction,
+.cl-dividerRow,
+.cl-devBar,
+.cl-internal,
+[data-localization-key='footerAction__signUp'],
+[data-localization-key='footerPageLink__help'],
+[data-localization-key='footerPageLink__privacy'],
+[data-localization-key='footerPageLink__terms'] {
+  display: none !important;
+}
